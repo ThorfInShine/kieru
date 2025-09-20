@@ -60,8 +60,8 @@ KIERU is a cutting-edge temporary email service built with **Next.js 14** and **
 
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/kieru-temp-mail.git
-cd kieru-temp-mail
+git clone https://github.com/ThorfInShine/kieru.git
+cd kieru
 
 # Install dependencies
 npm install
@@ -186,7 +186,7 @@ This project is licensed under the **MIT License**. See [LICENSE](./LICENSE).
 ---
 
 <div align="center">
-  <p>Made with ❤️ by <a href="https://github.com/yourusername">ThorfInShine</a></p>
+  <p>Made with ❤️ by <a href="https://github.com/ThorfInShine">ThorfInShine</a></p>
   <p><strong>KIERU</strong> — Protecting your privacy, one temporary email at a time</p>
 </div>
 
@@ -194,4 +194,4 @@ This project is licensed under the **MIT License**. See [LICENSE](./LICENSE).
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=yourusername/kieru-temp-mail\&type=Date)](https://star-history.com/#yourusername/kieru-temp-mail&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=ThorfInShine/kieru\&type=Date)](https://star-history.com/#ThorfInShine/kieru&Date)
