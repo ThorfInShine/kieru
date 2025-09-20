@@ -17,7 +17,9 @@ import {
   Info,
   Inbox,
   Zap,
-  Loader
+  Loader,
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import { EmailItem, EmailContent, APIResponse, EmailDomain } from '@/types/email';
 import { EMAIL_DOMAINS, getDefaultDomain } from '@/lib/domains';
@@ -37,6 +39,8 @@ interface EmailClientState {
   autoRefresh: boolean;
   refreshInterval: number;
   lastRefreshTime: Date | null;
+  mobileView: 'inbox' | 'content';
+  isMobile: boolean;
 }
 
 export default function EmailClient(): React.ReactElement {
@@ -54,7 +58,9 @@ export default function EmailClient(): React.ReactElement {
     isRefreshing: false,
     autoRefresh: true,
     refreshInterval: 5,
-    lastRefreshTime: null
+    lastRefreshTime: null,
+    mobileView: 'inbox',
+    isMobile: false
   });
 
   const refreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -63,6 +69,18 @@ export default function EmailClient(): React.ReactElement {
     setState(prev => ({ ...prev, ...updates }));
   };
 
+  // Check if mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      updateState({ isMobile: window.innerWidth <= 768 });
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Create particles effect
   useEffect(() => {
     const createParticles = () => {
@@ -70,7 +88,9 @@ export default function EmailClient(): React.ReactElement {
       particlesContainer.className = 'particles-bg';
       particlesContainer.id = 'particles-bg';
       
-      for (let i = 0; i < 20; i++) {
+      const particleCount = window.innerWidth <= 768 ? 10 : 20;
+      
+      for (let i = 0; i < particleCount; i++) {
         const particle = document.createElement('div');
         particle.className = 'particle';
         particle.style.left = Math.random() * 100 + '%';
@@ -309,19 +329,6 @@ export default function EmailClient(): React.ReactElement {
     }
   };
 
-  // Change domain
-  const changeDomain = async (newDomain: string): Promise<void> => {
-    updateState({ 
-      selectedDomain: newDomain, 
-      showDomainDropdown: false,
-      emails: [],
-      selectedEmail: null,
-      customEmail: ''
-    });
-    await initializeEmail(newDomain, true);
-    showNotification(`Switched to domain: ${newDomain}`);
-  };
-
   // Fetch email content
   const fetchEmailContent = async (emailId: string): Promise<void> => {
     updateState({ loading: true, error: null });
@@ -330,7 +337,10 @@ export default function EmailClient(): React.ReactElement {
       const result: APIResponse = await response.json();
       
       if (result.success && result.data) {
-        updateState({ selectedEmail: result.data as EmailContent });
+        updateState({ 
+          selectedEmail: result.data as EmailContent,
+          mobileView: state.isMobile ? 'content' : 'inbox'
+        });
       } else {
         updateState({ error: result.error || 'Failed to fetch email content' });
       }
@@ -359,7 +369,8 @@ export default function EmailClient(): React.ReactElement {
         setState((prevState: EmailClientState) => ({
           ...prevState,
           emails: prevState.emails.filter((email: EmailItem) => !emailIds.includes(email.mail_id)),
-          selectedEmail: emailIds.includes(prevState.selectedEmail?.mail_id || '') ? null : prevState.selectedEmail
+          selectedEmail: emailIds.includes(prevState.selectedEmail?.mail_id || '') ? null : prevState.selectedEmail,
+          mobileView: 'inbox'
         }));
         showNotification('Email deleted successfully!');
       } else {
@@ -414,7 +425,7 @@ export default function EmailClient(): React.ReactElement {
   const cardStyle: CSSProperties = {
     background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
     border: '1px solid rgba(37, 99, 235, 0.2)',
-    borderRadius: '16px',
+    borderRadius: state.isMobile ? '12px' : '16px',
     backdropFilter: 'blur(20px)',
     boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05)',
     overflow: 'hidden',
@@ -424,7 +435,7 @@ export default function EmailClient(): React.ReactElement {
   const cardHeaderStyle: CSSProperties = {
     background: 'linear-gradient(90deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)',
     borderBottom: '1px solid rgba(37, 99, 235, 0.2)',
-    padding: '20px 24px',
+    padding: state.isMobile ? '16px' : '20px 24px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between'
@@ -435,10 +446,11 @@ export default function EmailClient(): React.ReactElement {
     border: '1px solid rgba(37, 99, 235, 0.3)',
     borderRadius: '8px',
     color: '#ffffff',
-    padding: '10px 14px',
-    fontSize: '0.95rem',
+    padding: state.isMobile ? '12px' : '10px 14px',
+    fontSize: state.isMobile ? '1rem' : '0.95rem',
     transition: 'all 0.3s ease',
-    outline: 'none'
+    outline: 'none',
+    width: '100%'
   };
 
   const buttonPrimaryStyle: CSSProperties = {
@@ -446,8 +458,8 @@ export default function EmailClient(): React.ReactElement {
     border: 'none',
     borderRadius: '8px',
     color: '#ffffff',
-    padding: '10px 20px',
-    fontSize: '0.95rem',
+    padding: state.isMobile ? '12px 20px' : '10px 20px',
+    fontSize: state.isMobile ? '1rem' : '0.95rem',
     fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
@@ -462,8 +474,8 @@ export default function EmailClient(): React.ReactElement {
     border: '1px solid rgba(37, 99, 235, 0.3)',
     borderRadius: '8px',
     color: '#3b82f6',
-    padding: '10px 20px',
-    fontSize: '0.95rem',
+    padding: state.isMobile ? '12px 20px' : '10px 20px',
+    fontSize: state.isMobile ? '1rem' : '0.95rem',
     fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
@@ -477,8 +489,8 @@ export default function EmailClient(): React.ReactElement {
     border: 'none',
     borderRadius: '8px',
     color: '#ffffff',
-    padding: '10px 20px',
-    fontSize: '0.95rem',
+    padding: state.isMobile ? '12px 20px' : '10px 20px',
+    fontSize: state.isMobile ? '1rem' : '0.95rem',
     fontWeight: '600',
     cursor: 'pointer',
     transition: 'all 0.3s ease',
@@ -491,7 +503,7 @@ export default function EmailClient(): React.ReactElement {
     <div style={{ 
       maxWidth: '1200px', 
       margin: '0 auto', 
-      padding: '40px 20px',
+      padding: state.isMobile ? '20px 15px' : '40px 20px',
       position: 'relative',
       zIndex: 2
     }}>
@@ -501,41 +513,46 @@ export default function EmailClient(): React.ReactElement {
           background: 'linear-gradient(135deg, rgba(220, 53, 69, 0.15) 0%, rgba(220, 53, 69, 0.05) 100%)',
           border: '1px solid rgba(220, 53, 69, 0.3)',
           borderRadius: '12px',
-          padding: '18px',
-          marginBottom: '24px',
+          padding: state.isMobile ? '14px' : '18px',
+          marginBottom: state.isMobile ? '16px' : '24px',
           display: 'flex',
           alignItems: 'center',
           backdropFilter: 'blur(10px)'
         }}>
           <AlertCircle style={{
-            fontSize: '1.8rem',
+            fontSize: state.isMobile ? '1.5rem' : '1.8rem',
             color: '#dc3545',
-            marginRight: '18px'
+            marginRight: state.isMobile ? '12px' : '18px',
+            minWidth: '24px'
           }} />
-          <span style={{ color: '#f8b2b8' }}>{state.error}</span>
+          <span style={{ 
+            color: '#f8b2b8',
+            fontSize: state.isMobile ? '0.9rem' : '1rem'
+          }}>{state.error}</span>
         </div>
       )}
 
       {/* Main Header Section */}
-      <div style={{ marginBottom: '40px' }}>
+      <div style={{ marginBottom: state.isMobile ? '30px' : '40px' }}>
         <div style={{ textAlign: 'center' }}>
           <h2 style={{
-            fontSize: '4rem',
+            fontSize: state.isMobile ? '2.5rem' : '4rem',
             fontWeight: 'bold',
             background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             textShadow: '0 0 40px rgba(37, 99, 235, 0.5)',
-            letterSpacing: '4px',
-            marginBottom: '20px',
+            letterSpacing: state.isMobile ? '2px' : '4px',
+            marginBottom: state.isMobile ? '15px' : '20px',
             animation: 'kieru-text-glow 2s ease-in-out infinite',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flexWrap: state.isMobile ? 'wrap' : 'nowrap'
           }}>
             <span style={{
-              fontSize: '4.5rem',
-              marginRight: '20px',
+              fontSize: state.isMobile ? '3rem' : '4.5rem',
+              marginRight: state.isMobile ? '10px' : '20px',
               display: 'inline-block',
               background: 'linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%)',
               WebkitBackgroundClip: 'text',
@@ -545,11 +562,16 @@ export default function EmailClient(): React.ReactElement {
             }}>
               消
             </span>
-            KIERU MAIL
+            <span style={{ 
+              display: state.isMobile ? 'block' : 'inline',
+              width: state.isMobile ? '100%' : 'auto'
+            }}>
+              KIERU MAIL
+            </span>
           </h2>
           
           <p style={{
-            fontSize: '1.3rem',
+            fontSize: state.isMobile ? '1.1rem' : '1.3rem',
             color: '#94a3b8',
             marginBottom: '15px',
             letterSpacing: '1px',
@@ -560,10 +582,11 @@ export default function EmailClient(): React.ReactElement {
           
           <p style={{
             color: '#64748b',
-            fontSize: '1.1rem',
+            fontSize: state.isMobile ? '0.95rem' : '1.1rem',
             lineHeight: '1.6',
             maxWidth: '600px',
-            margin: '0 auto 30px'
+            margin: '0 auto 30px',
+            padding: state.isMobile ? '0 10px' : '0'
           }}>
             Get a disposable email address instantly. Perfect for protecting your privacy and avoiding spam.
           </p>
@@ -573,9 +596,9 @@ export default function EmailClient(): React.ReactElement {
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
-            gap: '20px',
+            gap: state.isMobile ? '10px' : '20px',
             flexWrap: 'wrap',
-            marginBottom: '35px'
+            marginBottom: state.isMobile ? '25px' : '35px'
           }}>
             {[
               { icon: CheckCircle, color: '#10b981', text: 'No Registration' },
@@ -586,7 +609,7 @@ export default function EmailClient(): React.ReactElement {
                 display: 'flex',
                 alignItems: 'center',
                 background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)',
-                padding: '12px 24px',
+                padding: state.isMobile ? '10px 16px' : '12px 24px',
                 borderRadius: '30px',
                 border: '1px solid rgba(37, 99, 235, 0.2)',
                 backdropFilter: 'blur(10px)',
@@ -595,8 +618,8 @@ export default function EmailClient(): React.ReactElement {
                 {feature.isText ? (
                   <span style={{ 
                     color: feature.color, 
-                    marginRight: '10px', 
-                    fontSize: '1.2rem',
+                    marginRight: state.isMobile ? '8px' : '10px', 
+                    fontSize: state.isMobile ? '1rem' : '1.2rem',
                     fontWeight: 'bold'
                   }}>
                     {feature.icon}
@@ -604,12 +627,16 @@ export default function EmailClient(): React.ReactElement {
                 ) : (
                   <feature.icon style={{ 
                     color: feature.color, 
-                    marginRight: '10px', 
-                    width: '20px', 
-                    height: '20px' 
+                    marginRight: state.isMobile ? '8px' : '10px', 
+                    width: state.isMobile ? '18px' : '20px', 
+                    height: state.isMobile ? '18px' : '20px' 
                   }} />
                 )}
-                <span style={{ color: '#e2e8f0', fontSize: '0.95rem', fontWeight: '500' }}>{feature.text}</span>
+                <span style={{ 
+                  color: '#e2e8f0', 
+                  fontSize: state.isMobile ? '0.85rem' : '0.95rem', 
+                  fontWeight: '500' 
+                }}>{feature.text}</span>
               </div>
             ))}
           </div>
@@ -617,7 +644,7 @@ export default function EmailClient(): React.ReactElement {
           {/* Email Address Display with Refresh Controls */}
           <div style={{
             ...cardStyle,
-            padding: '24px',
+            padding: state.isMobile ? '16px' : '24px',
             marginBottom: '30px',
             background: 'linear-gradient(135deg, rgba(37, 99, 235, 0.1) 0%, rgba(37, 99, 235, 0.05) 100%)',
             border: '2px solid rgba(37, 99, 235, 0.3)'
@@ -625,15 +652,23 @@ export default function EmailClient(): React.ReactElement {
             {/* Refresh Status Bar */}
             <div style={{
               display: 'flex',
+              flexDirection: state.isMobile ? 'column' : 'row',
               justifyContent: 'space-between',
-              alignItems: 'center',
+              alignItems: state.isMobile ? 'stretch' : 'center',
               marginBottom: '20px',
               padding: '12px',
               background: 'rgba(0, 0, 0, 0.2)',
               borderRadius: '8px',
-              border: '1px solid rgba(37, 99, 235, 0.15)'
+              border: '1px solid rgba(37, 99, 235, 0.15)',
+              gap: state.isMobile ? '12px' : '15px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: state.isMobile ? '10px' : '15px',
+                flexWrap: state.isMobile ? 'wrap' : 'nowrap',
+                justifyContent: state.isMobile ? 'space-between' : 'flex-start'
+              }}>
                 {/* Auto-refresh toggle */}
                 <button
                   onClick={toggleAutoRefresh}
@@ -642,12 +677,12 @@ export default function EmailClient(): React.ReactElement {
                     background: state.autoRefresh ? 'rgba(16, 185, 129, 0.2)' : 'rgba(100, 116, 139, 0.2)',
                     border: `1px solid ${state.autoRefresh ? 'rgba(16, 185, 129, 0.4)' : 'rgba(100, 116, 139, 0.4)'}`,
                     borderRadius: '6px',
-                    padding: '6px 12px',
+                    padding: state.isMobile ? '8px 12px' : '6px 12px',
                     color: state.autoRefresh ? '#10b981' : '#64748b',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    fontSize: '0.85rem',
+                    fontSize: state.isMobile ? '0.9rem' : '0.85rem',
                     fontWeight: '500',
                     transition: 'all 0.3s ease'
                   }}
@@ -670,9 +705,9 @@ export default function EmailClient(): React.ReactElement {
                       background: 'rgba(37, 99, 235, 0.1)',
                       border: '1px solid rgba(37, 99, 235, 0.3)',
                       borderRadius: '6px',
-                      padding: '6px 10px',
+                      padding: state.isMobile ? '8px 10px' : '6px 10px',
                       color: '#60a5fa',
-                      fontSize: '0.85rem',
+                      fontSize: state.isMobile ? '0.9rem' : '0.85rem',
                       cursor: 'pointer',
                       outline: 'none'
                     }}
@@ -690,7 +725,7 @@ export default function EmailClient(): React.ReactElement {
                   display: 'flex',
                   alignItems: 'center',
                   color: '#64748b',
-                  fontSize: '0.85rem'
+                  fontSize: state.isMobile ? '0.9rem' : '0.85rem'
                 }}>
                   <Clock style={{ width: '14px', height: '14px', marginRight: '6px' }} />
                   Last refresh: {formatLastRefresh()}
@@ -706,26 +741,30 @@ export default function EmailClient(): React.ReactElement {
                   background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                   border: 'none',
                   borderRadius: '8px',
-                  padding: '8px 16px',
+                  padding: state.isMobile ? '10px 16px' : '8px 16px',
                   color: '#ffffff',
                   cursor: state.isRefreshing ? 'not-allowed' : 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  fontSize: '0.9rem',
+                  justifyContent: 'center',
+                  fontSize: state.isMobile ? '0.95rem' : '0.9rem',
                   fontWeight: '500',
                   opacity: state.isRefreshing ? 0.7 : 1,
                   transition: 'all 0.3s ease',
-                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)'
+                  boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+                  width: state.isMobile ? '100%' : 'auto'
                 }}
                 onMouseEnter={(e) => {
-                  if (!state.isRefreshing) {
+                  if (!state.isRefreshing && !state.isMobile) {
                     e.currentTarget.style.transform = 'translateY(-1px)';
                     e.currentTarget.style.boxShadow = '0 4px 12px rgba(37, 99, 235, 0.4)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.3)';
+                  if (!state.isMobile) {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(37, 99, 235, 0.3)';
+                  }
                 }}
               >
                 {state.isRefreshing ? (
@@ -757,20 +796,30 @@ export default function EmailClient(): React.ReactElement {
               justifyContent: 'center',
               marginBottom: '16px'
             }}>
-              <Mail style={{ color: '#3b82f6', marginRight: '12px', width: '24px', height: '24px' }} />
-              <span style={{ color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>Your Temporary Email</span>
+              <Mail style={{ 
+                color: '#3b82f6', 
+                marginRight: '12px', 
+                width: state.isMobile ? '20px' : '24px', 
+                height: state.isMobile ? '20px' : '24px' 
+              }} />
+              <span style={{ 
+                color: '#94a3b8', 
+                fontSize: state.isMobile ? '1rem' : '1.1rem', 
+                fontWeight: '500' 
+              }}>Your Temporary Email</span>
             </div>
             <div style={{
-              fontSize: '1.9rem',
+              fontSize: state.isMobile ? '1.2rem' : '1.9rem',
               fontFamily: 'ui-monospace, monospace',
               color: '#60a5fa',
               fontWeight: '600',
               marginBottom: '20px',
               wordBreak: 'break-all',
-              padding: '16px',
+              padding: state.isMobile ? '14px' : '16px',
               background: 'rgba(0, 0, 0, 0.3)',
               borderRadius: '8px',
-              border: '1px solid rgba(37, 99, 235, 0.2)'
+              border: '1px solid rgba(37, 99, 235, 0.2)',
+              textAlign: 'center'
             }}>
               {state.emailAddress || (
                 <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -779,26 +828,33 @@ export default function EmailClient(): React.ReactElement {
                 </span>
               )}
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '16px' }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              gap: state.isMobile ? '12px' : '16px',
+              flexDirection: state.isMobile ? 'column' : 'row'
+            }}>
               <button
                 onClick={() => copyToClipboard(state.emailAddress)}
                 disabled={!state.emailAddress}
                 type="button"
                 style={{
                   ...buttonPrimaryStyle,
-                  minWidth: '140px',
+                  minWidth: state.isMobile ? '100%' : '140px',
                   opacity: !state.emailAddress ? 0.5 : 1,
                   cursor: !state.emailAddress ? 'not-allowed' : 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  if (state.emailAddress) {
+                  if (state.emailAddress && !state.isMobile) {
                     e.currentTarget.style.transform = 'translateY(-2px)';
                     e.currentTarget.style.boxShadow = '0 6px 20px rgba(37, 99, 235, 0.4)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(37, 99, 235, 0.3)';
+                  if (!state.isMobile) {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(37, 99, 235, 0.3)';
+                  }
                 }}
               >
                 <Copy style={{ marginRight: '8px', width: '18px', height: '18px' }} />
@@ -810,19 +866,21 @@ export default function EmailClient(): React.ReactElement {
                 type="button"
                 style={{
                   ...buttonSecondaryStyle,
-                  minWidth: '140px',
+                  minWidth: state.isMobile ? '100%' : '140px',
                   opacity: state.loading ? 0.5 : 1,
                   cursor: state.loading ? 'not-allowed' : 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  if (!state.loading) {
+                  if (!state.loading && !state.isMobile) {
                     e.currentTarget.style.background = 'rgba(37, 99, 235, 0.2)';
                     e.currentTarget.style.transform = 'translateY(-2px)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)';
-                  e.currentTarget.style.transform = 'translateY(0)';
+                  if (!state.isMobile) {
+                    e.currentTarget.style.background = 'rgba(37, 99, 235, 0.1)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                  }
                 }}
               >
                 <RefreshCw style={{ 
@@ -838,27 +896,34 @@ export default function EmailClient(): React.ReactElement {
         </div>
       </div>
 
-      {/* Settings Section */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '24px', marginBottom: '35px' }}>
-
-
-        {/* Custom Email */}
+      {/* Custom Email Section */}
+      <div style={{ 
+        marginBottom: state.isMobile ? '25px' : '35px'
+      }}>
         <div style={cardStyle}>
           <div style={cardHeaderStyle}>
             <h6 style={{
               color: '#3b82f6',
-              fontSize: '1.1rem',
+              fontSize: state.isMobile ? '1rem' : '1.1rem',
               margin: 0,
               display: 'flex',
               alignItems: 'center',
               fontWeight: '600'
             }}>
-              <User style={{ marginRight: '12px', width: '20px', height: '20px' }} />
+              <User style={{ 
+                marginRight: state.isMobile ? '10px' : '12px', 
+                width: state.isMobile ? '18px' : '20px', 
+                height: state.isMobile ? '18px' : '20px' 
+              }} />
               Custom Username
             </h6>
           </div>
-          <div style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
+          <div style={{ padding: state.isMobile ? '16px' : '24px' }}>
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px',
+              flexDirection: state.isMobile ? 'column' : 'row'
+            }}>
               <input
                 type="text"
                 value={state.customEmail}
@@ -888,292 +953,600 @@ export default function EmailClient(): React.ReactElement {
                 type="button"
                 style={{
                   ...buttonSuccessStyle,
-                  minWidth: '80px',
+                  minWidth: state.isMobile ? '100%' : '80px',
                   opacity: state.loading || !state.customEmail.trim() ? 0.5 : 1,
                   cursor: state.loading || !state.customEmail.trim() ? 'not-allowed' : 'pointer'
                 }}
                 onMouseEnter={(e) => {
-                  if (!state.loading && state.customEmail.trim()) {
+                  if (!state.loading && state.customEmail.trim() && !state.isMobile) {
                     e.currentTarget.style.transform = 'translateY(-2px)';
                     e.currentTarget.style.boxShadow = '0 6px 20px rgba(16, 185, 129, 0.4)';
                   }
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.3)';
+                  if (!state.isMobile) {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 4px 15px rgba(16, 185, 129, 0.3)';
+                  }
                 }}
               >
-                Set
+                SET
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Email Content Area */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-        {/* Inbox */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h5 style={{ 
-              margin: 0, 
-              fontSize: '1.2rem',
-              color: '#e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              fontWeight: '600'
-            }}>
-              <Inbox style={{ marginRight: '12px', color: '#3b82f6', width: '24px', height: '24px' }} />
-              Inbox
-              {state.isRefreshing && (
-                <span style={{
-                  marginLeft: '12px',
-                  display: 'inline-flex',
+      {/* Email Content Area - Mobile Responsive */}
+      {state.isMobile ? (
+        // Mobile Layout
+        <>
+          {state.mobileView === 'inbox' ? (
+            // Inbox View
+            <div style={cardStyle}>
+              <div style={cardHeaderStyle}>
+                <h5 style={{ 
+                  margin: 0, 
+                  fontSize: '1.1rem',
+                  color: '#e2e8f0',
+                  display: 'flex',
                   alignItems: 'center',
-                  fontSize: '0.85rem',
+                  fontWeight: '600'
+                }}>
+                  <Inbox style={{ marginRight: '10px', color: '#3b82f6', width: '20px', height: '20px' }} />
+                  Inbox
+                  {state.isRefreshing && (
+                    <span style={{
+                      marginLeft: '10px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      fontSize: '0.8rem',
+                      color: '#60a5fa',
+                      animation: 'pulse 1.5s infinite'
+                    }}>
+                      <Loader style={{ width: '12px', height: '12px', marginRight: '4px', animation: 'spin 1s linear infinite' }} />
+                    </span>
+                  )}
+                </h5>
+                <span style={{
+                  background: 'rgba(37, 99, 235, 0.2)',
                   color: '#60a5fa',
-                  animation: 'pulse 1.5s infinite'
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: '600'
                 }}>
-                  <Loader style={{ width: '14px', height: '14px', marginRight: '6px', animation: 'spin 1s linear infinite' }} />
-                  Checking...
+                  {state.emailCount} emails
                 </span>
-              )}
-            </h5>
-            <span style={{
-              background: 'rgba(37, 99, 235, 0.2)',
-              color: '#60a5fa',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              fontSize: '0.85rem',
-              fontWeight: '600'
-            }}>
-              {state.emailCount} emails
-            </span>
-          </div>
-          <div style={{ 
-            maxHeight: '600px', 
-            overflowY: 'auto',
-            overflowX: 'hidden'
-          }}>
-            {state.emails.length === 0 ? (
-              <div style={{ padding: '80px 20px', textAlign: 'center' }}>
-                <CloudUpload style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  color: '#475569',
-                  margin: '0 auto 20px'
-                }} />
-                <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '8px', fontWeight: '500' }}>
-                  No emails yet
-                </p>
-                <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
-                  Emails will appear here automatically
-                </p>
               </div>
-            ) : (
-              <div>
-                {state.emails.map((email: EmailItem) => (
-                  <div
-                    key={email.mail_id}
-                    onClick={() => fetchEmailContent(email.mail_id)}
-                    style={{
-                      padding: '18px 24px',
-                      borderBottom: '1px solid rgba(37, 99, 235, 0.1)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      background: state.selectedEmail?.mail_id === email.mail_id ? 
-                        'linear-gradient(90deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)' : 'transparent',
-                      borderLeft: state.selectedEmail?.mail_id === email.mail_id ? 
-                        '3px solid #3b82f6' : '3px solid transparent'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (state.selectedEmail?.mail_id !== email.mail_id) {
-                        e.currentTarget.style.background = 'rgba(37, 99, 235, 0.08)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (state.selectedEmail?.mail_id !== email.mail_id) {
-                        e.currentTarget.style.background = 'transparent';
-                      }
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ 
-                          color: '#60a5fa', 
-                          fontSize: '0.9rem',
-                          marginBottom: '6px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          fontWeight: '500'
-                        }}>
-                          {email.mail_from}
-                        </div>
-                        <div style={{ 
-                          color: '#e2e8f0', 
-                          fontSize: '1rem',
-                          fontWeight: '600',
-                          marginBottom: '6px',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {email.mail_subject || '(No Subject)'}
-                        </div>
-                        <div style={{ 
-                          color: '#64748b',
-                          fontSize: '0.9rem',
-                          overflow: 'hidden',
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical' as const,
-                          lineHeight: '1.4'
-                        }}>
-                          {email.mail_excerpt}
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '16px' }}>
-                        <span style={{ 
-                          color: '#475569', 
-                          fontSize: '0.8rem',
-                          whiteSpace: 'nowrap'
-                        }}>
-                          {formatDate(email.mail_timestamp)}
-                        </span>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            deleteEmails([email.mail_id]);
-                          }}
-                          style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#64748b',
-                            cursor: 'pointer',
-                            padding: '6px',
-                            borderRadius: '6px',
-                            transition: 'all 0.3s',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = '#ef4444';
-                            e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = '#64748b';
-                            e.currentTarget.style.background = 'transparent';
-                          }}
-                          type="button"
-                        >
-                          <Trash2 style={{ width: '16px', height: '16px' }} />
-                        </button>
-                      </div>
-                    </div>
+              <div style={{ 
+                maxHeight: '500px', 
+                overflowY: 'auto',
+                overflowX: 'hidden'
+              }}>
+                {state.emails.length === 0 ? (
+                  <div style={{ padding: '60px 20px', textAlign: 'center' }}>
+                    <CloudUpload style={{ 
+                      width: '48px', 
+                      height: '48px', 
+                      color: '#475569',
+                      margin: '0 auto 16px'
+                    }} />
+                    <p style={{ color: '#94a3b8', fontSize: '1rem', marginBottom: '8px', fontWeight: '500' }}>
+                      No emails yet
+                    </p>
+                    <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
+                      Emails will appear here automatically
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  <div>
+                    {state.emails.map((email: EmailItem) => (
+                      <div
+                        key={email.mail_id}
+                        onClick={() => fetchEmailContent(email.mail_id)}
+                        style={{
+                          padding: '16px',
+                          borderBottom: '1px solid rgba(37, 99, 235, 0.1)',
+                          cursor: 'pointer',
+                          transition: 'all 0.3s ease',
+                          background: 'transparent'
+                        }}
+                        onTouchStart={(e) => {
+                          const element = e.currentTarget;
+                          element.style.background = 'rgba(37, 99, 235, 0.08)';
+                        }}
+                        onTouchEnd={(e) => {
+                          const element = e.currentTarget;
+                          setTimeout(() => {
+                            if (element) {
+                              element.style.background = 'transparent';
+                            }
+                          }, 200);
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ 
+                              color: '#60a5fa', 
+                              fontSize: '0.85rem',
+                              marginBottom: '4px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontWeight: '500'
+                            }}>
+                              {email.mail_from}
+                            </div>
+                            <div style={{ 
+                              color: '#e2e8f0', 
+                              fontSize: '0.95rem',
+                              fontWeight: '600',
+                              marginBottom: '4px',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {email.mail_subject || '(No Subject)'}
+                            </div>
+                            <div style={{ 
+                              color: '#64748b',
+                              fontSize: '0.85rem',
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical' as const,
+                              lineHeight: '1.4'
+                            }}>
+                              {email.mail_excerpt}
+                            </div>
+                            <div style={{ 
+                              color: '#475569', 
+                              fontSize: '0.75rem',
+                              marginTop: '6px'
+                            }}>
+                              {formatDate(email.mail_timestamp)}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteEmails([email.mail_id]);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#64748b',
+                              cursor: 'pointer',
+                              padding: '8px',
+                              borderRadius: '6px',
+                              transition: 'all 0.3s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              marginLeft: '10px'
+                            }}
+                            onTouchStart={(e) => {
+                              const element = e.currentTarget;
+                              element.style.color = '#ef4444';
+                              element.style.background = 'rgba(239, 68, 68, 0.1)';
+                            }}
+                            onTouchEnd={(e) => {
+                              const element = e.currentTarget;
+                              setTimeout(() => {
+                                if (element) {
+                                  element.style.color = '#64748b';
+                                  element.style.background = 'transparent';
+                                }
+                              }, 200);
+                            }}
+                            type="button"
+                          >
+                            <Trash2 style={{ width: '18px', height: '18px' }} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-
-        {/* Email Content */}
-        <div style={cardStyle}>
-          <div style={cardHeaderStyle}>
-            <h5 style={{ 
-              margin: 0, 
-              fontSize: '1.2rem',
-              color: '#e2e8f0',
-              display: 'flex',
-              alignItems: 'center',
-              fontWeight: '600'
-            }}>
-              <Info style={{ marginRight: '12px', color: '#3b82f6', width: '24px', height: '24px' }} />
-              Email Content
-            </h5>
-          </div>
-          <div style={{ 
-            maxHeight: '600px', 
-            overflowY: 'auto',
-            padding: '24px'
-          }}>
-            {state.selectedEmail ? (
-              <div>
-                <div style={{
-                  borderBottom: '1px solid rgba(37, 99, 235, 0.15)',
-                  paddingBottom: '20px',
-                  marginBottom: '20px'
+            </div>
+          ) : (
+            // Email Content View
+            <div style={cardStyle}>
+              <div style={{
+                ...cardHeaderStyle,
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => updateState({ mobileView: 'inbox', selectedEmail: null })}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#3b82f6',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    fontSize: '0.9rem',
+                    fontWeight: '500',
+                    marginRight: '12px'
+                  }}
+                  type="button"
+                >
+                  <ArrowLeft style={{ width: '20px', height: '20px', marginRight: '6px' }} />
+                  Back
+                </button>
+                <h5 style={{ 
+                  margin: 0, 
+                  fontSize: '1rem',
+                  color: '#e2e8f0',
+                  fontWeight: '600',
+                  flex: 1
                 }}>
-                  <h3 style={{
-                    fontSize: '1.4rem',
-                    color: '#e2e8f0',
-                    marginBottom: '16px',
-                    fontWeight: '600'
+                  Email Content
+                </h5>
+                <button
+                  onClick={() => {
+                    if (state.selectedEmail) {
+                      deleteEmails([state.selectedEmail.mail_id]);
+                    }
+                  }}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ef4444',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center'
+                  }}
+                  type="button"
+                >
+                  <Trash2 style={{ width: '18px', height: '18px' }} />
+                </button>
+              </div>
+              <div style={{ 
+                maxHeight: '500px', 
+                overflowY: 'auto',
+                padding: '16px'
+              }}>
+                {state.selectedEmail && (
+                  <div>
+                    <div style={{
+                      borderBottom: '1px solid rgba(37, 99, 235, 0.15)',
+                      paddingBottom: '16px',
+                      marginBottom: '16px'
+                    }}>
+                      <h3 style={{
+                        fontSize: '1.2rem',
+                        color: '#e2e8f0',
+                        marginBottom: '12px',
+                        fontWeight: '600',
+                        wordBreak: 'break-word'
+                      }}>
+                        {state.selectedEmail.mail_subject || '(No Subject)'}
+                      </h3>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start', 
+                          color: '#94a3b8', 
+                          fontSize: '0.85rem' 
+                        }}>
+                          <User style={{ width: '16px', height: '16px', marginRight: '8px', marginTop: '2px', color: '#60a5fa', flexShrink: 0 }} />
+                          <div style={{ wordBreak: 'break-all' }}>
+                            <span style={{ color: '#64748b', marginRight: '6px' }}>From:</span>
+                            {state.selectedEmail.mail_from}
+                          </div>
+                        </div>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start', 
+                          color: '#94a3b8', 
+                          fontSize: '0.85rem' 
+                        }}>
+                          <Mail style={{ width: '16px', height: '16px', marginRight: '8px', marginTop: '2px', color: '#60a5fa', flexShrink: 0 }} />
+                          <div style={{ wordBreak: 'break-all' }}>
+                            <span style={{ color: '#64748b', marginRight: '6px' }}>To:</span>
+                            {state.selectedEmail.mail_recipient}
+                          </div>
+                        </div>
+                        <div style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          color: '#94a3b8', 
+                          fontSize: '0.85rem' 
+                        }}>
+                          <Clock style={{ width: '16px', height: '16px', marginRight: '8px', color: '#60a5fa' }} />
+                          <span style={{ color: '#64748b', marginRight: '6px' }}>Date:</span>
+                          {formatDate(state.selectedEmail.mail_timestamp)}
+                        </div>
+                      </div>
+                    </div>
+                    <div 
+                      style={{ 
+                        color: '#cbd5e1', 
+                        lineHeight: '1.8',
+                        fontSize: '0.9rem',
+                        wordBreak: 'break-word'
+                      }}
+                      dangerouslySetInnerHTML={{ 
+                        __html: state.selectedEmail.mail_body || state.selectedEmail.mail_excerpt 
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        // Desktop Layout
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+          {/* Inbox */}
+          <div style={cardStyle}>
+            <div style={cardHeaderStyle}>
+              <h5 style={{ 
+                margin: 0, 
+                fontSize: '1.2rem',
+                color: '#e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                fontWeight: '600'
+              }}>
+                <Inbox style={{ marginRight: '12px', color: '#3b82f6', width: '24px', height: '24px' }} />
+                Inbox
+                {state.isRefreshing && (
+                  <span style={{
+                    marginLeft: '12px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    fontSize: '0.85rem',
+                    color: '#60a5fa',
+                    animation: 'pulse 1.5s infinite'
                   }}>
-                    {state.selectedEmail.mail_subject || '(No Subject)'}
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      color: '#94a3b8', 
-                      fontSize: '0.95rem' 
-                    }}>
-                      <User style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
-                      <span style={{ color: '#64748b', marginRight: '8px' }}>From:</span>
-                      {state.selectedEmail.mail_from}
+                    <Loader style={{ width: '14px', height: '14px', marginRight: '6px', animation: 'spin 1s linear infinite' }} />
+                    Checking...
+                  </span>
+                )}
+              </h5>
+              <span style={{
+                background: 'rgba(37, 99, 235, 0.2)',
+                color: '#60a5fa',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                fontSize: '0.85rem',
+                fontWeight: '600'
+              }}>
+                {state.emailCount} emails
+              </span>
+            </div>
+            <div style={{ 
+              maxHeight: '600px', 
+              overflowY: 'auto',
+              overflowX: 'hidden'
+            }}>
+              {state.emails.length === 0 ? (
+                <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+                  <CloudUpload style={{ 
+                    width: '56px', 
+                    height: '56px', 
+                    color: '#475569',
+                    margin: '0 auto 20px'
+                  }} />
+                  <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '8px', fontWeight: '500' }}>
+                    No emails yet
+                  </p>
+                  <p style={{ color: '#64748b', fontSize: '0.95rem' }}>
+                    Emails will appear here automatically
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  {state.emails.map((email: EmailItem) => (
+                    <div
+                      key={email.mail_id}
+                      onClick={() => fetchEmailContent(email.mail_id)}
+                      style={{
+                        padding: '18px 24px',
+                        borderBottom: '1px solid rgba(37, 99, 235, 0.1)',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        background: state.selectedEmail?.mail_id === email.mail_id ? 
+                          'linear-gradient(90deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.05) 100%)' : 'transparent',
+                        borderLeft: state.selectedEmail?.mail_id === email.mail_id ? 
+                          '3px solid #3b82f6' : '3px solid transparent'
+                      }}
+                      onMouseEnter={(e) => {
+                        if (state.selectedEmail?.mail_id !== email.mail_id) {
+                          e.currentTarget.style.background = 'rgba(37, 99, 235, 0.08)';
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (state.selectedEmail?.mail_id !== email.mail_id) {
+                          e.currentTarget.style.background = 'transparent';
+                        }
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ 
+                            color: '#60a5fa', 
+                            fontSize: '0.9rem',
+                            marginBottom: '6px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            fontWeight: '500'
+                          }}>
+                            {email.mail_from}
+                          </div>
+                          <div style={{ 
+                            color: '#e2e8f0', 
+                            fontSize: '1rem',
+                            fontWeight: '600',
+                            marginBottom: '6px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {email.mail_subject || '(No Subject)'}
+                          </div>
+                          <div style={{ 
+                            color: '#64748b',
+                            fontSize: '0.9rem',
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical' as const,
+                            lineHeight: '1.4'
+                          }}>
+                            {email.mail_excerpt}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginLeft: '16px' }}>
+                          <span style={{ 
+                            color: '#475569', 
+                            fontSize: '0.8rem',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {formatDate(email.mail_timestamp)}
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deleteEmails([email.mail_id]);
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#64748b',
+                              cursor: 'pointer',
+                              padding: '6px',
+                              borderRadius: '6px',
+                              transition: 'all 0.3s',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.color = '#ef4444';
+                              e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.color = '#64748b';
+                              e.currentTarget.style.background = 'transparent';
+                            }}
+                            type="button"
+                          >
+                            <Trash2 style={{ width: '16px', height: '16px' }} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      color: '#94a3b8', 
-                      fontSize: '0.95rem' 
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Email Content */}
+          <div style={cardStyle}>
+            <div style={cardHeaderStyle}>
+              <h5 style={{ 
+                margin: 0, 
+                fontSize: '1.2rem',
+                color: '#e2e8f0',
+                display: 'flex',
+                alignItems: 'center',
+                fontWeight: '600'
+              }}>
+                <Info style={{ marginRight: '12px', color: '#3b82f6', width: '24px', height: '24px' }} />
+                Email Content
+              </h5>
+            </div>
+            <div style={{ 
+              maxHeight: '600px', 
+              overflowY: 'auto',
+              padding: '24px'
+            }}>
+              {state.selectedEmail ? (
+                <div>
+                  <div style={{
+                    borderBottom: '1px solid rgba(37, 99, 235, 0.15)',
+                    paddingBottom: '20px',
+                    marginBottom: '20px'
+                  }}>
+                    <h3 style={{
+                      fontSize: '1.4rem',
+                      color: '#e2e8f0',
+                      marginBottom: '16px',
+                      fontWeight: '600'
                     }}>
-                      <Mail style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
-                      <span style={{ color: '#64748b', marginRight: '8px' }}>To:</span>
-                      {state.selectedEmail.mail_recipient}
-                    </div>
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      color: '#94a3b8', 
-                      fontSize: '0.95rem' 
-                    }}>
-                      <Clock style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
-                      <span style={{ color: '#64748b', marginRight: '8px' }}>Date:</span>
-                      {formatDate(state.selectedEmail.mail_timestamp)}
+                      {state.selectedEmail.mail_subject || '(No Subject)'}
+                    </h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        color: '#94a3b8', 
+                        fontSize: '0.95rem' 
+                      }}>
+                        <User style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
+                        <span style={{ color: '#64748b', marginRight: '8px' }}>From:</span>
+                        {state.selectedEmail.mail_from}
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        color: '#94a3b8', 
+                        fontSize: '0.95rem' 
+                      }}>
+                        <Mail style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
+                        <span style={{ color: '#64748b', marginRight: '8px' }}>To:</span>
+                        {state.selectedEmail.mail_recipient}
+                      </div>
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        color: '#94a3b8', 
+                        fontSize: '0.95rem' 
+                      }}>
+                        <Clock style={{ width: '18px', height: '18px', marginRight: '10px', color: '#60a5fa' }} />
+                        <span style={{ color: '#64748b', marginRight: '8px' }}>Date:</span>
+                        {formatDate(state.selectedEmail.mail_timestamp)}
+                      </div>
                     </div>
                   </div>
+                  <div 
+                    style={{ 
+                      color: '#cbd5e1', 
+                      lineHeight: '1.8',
+                      fontSize: '0.95rem'
+                    }}
+                    dangerouslySetInnerHTML={{ 
+                      __html: state.selectedEmail.mail_body || state.selectedEmail.mail_excerpt 
+                    }}
+                  />
                 </div>
-                <div 
-                  style={{ 
-                    color: '#cbd5e1', 
-                    lineHeight: '1.8',
-                    fontSize: '0.95rem'
-                  }}
-                  dangerouslySetInnerHTML={{ 
-                    __html: state.selectedEmail.mail_body || state.selectedEmail.mail_excerpt 
-                  }}
-                />
-              </div>
-            ) : (
-              <div style={{ padding: '80px 20px', textAlign: 'center' }}>
-                <Mail style={{ 
-                  width: '56px', 
-                  height: '56px', 
-                  color: '#475569',
-                  margin: '0 auto 20px'
-                }} />
-                <p style={{ color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
-                  Select an email to view its content
-                </p>
-              </div>
-            )}
+              ) : (
+                <div style={{ padding: '80px 20px', textAlign: 'center' }}>
+                  <Mail style={{ 
+                    width: '56px', 
+                    height: '56px', 
+                    color: '#475569',
+                    margin: '0 auto 20px'
+                  }} />
+                  <p style={{ color: '#94a3b8', fontSize: '1.1rem', fontWeight: '500' }}>
+                    Select an email to view its content
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Add CSS for animations */}
       <style jsx>{`
